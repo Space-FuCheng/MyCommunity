@@ -2,13 +2,16 @@ package com.nowcoder.community.service;
 
 import com.nowcoder.community.dao.LoginTicketMapper;
 import com.nowcoder.community.dao.UserMapper;
+import com.nowcoder.community.entity.Event;
 import com.nowcoder.community.entity.LoginTicket;
 import com.nowcoder.community.entity.User;
+import com.nowcoder.community.event.EventProducer;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.MailClient;
 import com.nowcoder.community.util.RedisKeyUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,6 +34,8 @@ public class UserService implements CommunityConstant {
 
     @Autowired
     private TemplateEngine templateEngine;
+    @Autowired
+    private EventProducer eventProducer;
 
     @Value("${community.path.domain}")
     private String domain;
@@ -81,15 +86,19 @@ public class UserService implements CommunityConstant {
         }
 
         // 验证邮箱
-        u = userMapper.selectByEmail(user.getEmail());
-        if (u != null) {
-            map.put("emailMsg", "该邮箱已被注册!");
-            return map;
-        }
+//        u = userMapper.selectByEmail(user.getEmail());
+//        if (u != null) {
+//            map.put("emailMsg", "该邮箱已被注册!");
+//            return map;
+//        }
 
         // 注册用户
-        user.setSalt(CommunityUtil.generateUUID().substring(0, 5));
-        user.setPassword(CommunityUtil.md5(user.getPassword() + user.getSalt()));
+        //用bcrypt不需要加盐了
+//        user.setSalt(CommunityUtil.generateUUID().substring(0, 5));
+
+//        user.setPassword(CommunityUtil.md5(user.getPassword() + user.getSalt()));
+        //改用Bcrypt，内部会生成盐
+        user.setPassword(CommunityUtil.hashPassword(user.getPassword()));
         user.setType(0);
         user.setStatus(0);
         user.setActivationCode(CommunityUtil.generateUUID());
@@ -149,8 +158,14 @@ public class UserService implements CommunityConstant {
         }
 
         // 验证密码
-        password = CommunityUtil.md5(password + user.getSalt());
-        if (!user.getPassword().equals(password)) {
+//        password = CommunityUtil.md5(password + user.getSalt());
+
+//        if (!user.getPassword().equals(password)) {
+//            map.put("passwordMsg", "密码不正确!");
+//            return map;
+//        }
+        //BCrypt.checkpw会验证是否正确，其中password是用户输入的明文的密码
+        if (! BCrypt.checkpw(password, user.getPassword())) {
             map.put("passwordMsg", "密码不正确!");
             return map;
         }
@@ -187,7 +202,9 @@ public class UserService implements CommunityConstant {
     public int updateHeader(int userId, String headerUrl) {
 //        return userMapper.updateHeader(userId, headerUrl);
         int rows = userMapper.updateHeader(userId, headerUrl);
+
         clearCache(userId);
+
         return rows;
     }
 
@@ -211,8 +228,11 @@ public class UserService implements CommunityConstant {
 
     // 3.数据变更时清除缓存数据
     private void clearCache(int userId) {
-        String redisKey = RedisKeyUtil.getUserKey(userId);
-        redisTemplate.delete(redisKey);
+//        String redisKey = RedisKeyUtil.getUserKey(userId);
+//        redisTemplate.delete(redisKey);
+        //通过发送到消息队列来清除
+        Event event = new Event().setUserId(userId+1).setTopic(TOPIC_DELETE_USER_PROFILE_CACHE);
+        eventProducer.fireEvent(event);
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities(int userId) {

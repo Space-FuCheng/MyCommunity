@@ -2,6 +2,7 @@ package com.nowcoder.community.util;
 
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.lang3.StringUtils;
+import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.util.DigestUtils;
 
 import java.util.HashMap;
@@ -23,6 +24,18 @@ public class CommunityUtil {
             return null;
         }
         return DigestUtils.md5DigestAsHex(key.getBytes());
+    }
+    //我优化后改用Bcrypt加密了
+    public static String hashPassword(String password) {
+        if (StringUtils.isBlank(password)) {
+            return null;
+        }
+        //Bcrypt生成盐
+        String salt = BCrypt.gensalt();
+
+        // 使用BCrypt哈希密码
+        String hashedPassword = BCrypt.hashpw(password, salt);
+        return hashedPassword;
     }
 
     public static String getJSONString(int code, String msg, Map<String, Object> map) {

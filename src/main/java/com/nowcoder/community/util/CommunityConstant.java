@@ -78,6 +78,11 @@ public interface CommunityConstant {
     String TOPIC_SHARE = "share";
 
     /**
+     * 主题：删除用户基本信息的缓存
+     */
+    String TOPIC_DELETE_USER_PROFILE_CACHE = "userProfileCache";
+
+    /**
      * 权限：普通用户
      */
     String AUTHORITY_USER = "user";
@@ -91,5 +96,10 @@ public interface CommunityConstant {
      * 权限：版主
      */
     String AUTHORITY_MODERATOR = "moderator";
+
+    /**
+     * 删除缓存最大重试次数
+     */
+    int MAX_RETRY_COUNT = 3;
 
 }

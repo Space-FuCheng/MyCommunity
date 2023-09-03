@@ -9,6 +9,7 @@ import com.nowcoder.community.service.ElasticsearchService;
 import com.nowcoder.community.service.MessageService;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
+import com.nowcoder.community.util.RedisKeyUtil;
 import com.qiniu.common.QiniuException;
 import com.qiniu.common.Zone;
 import com.qiniu.http.Response;
@@ -21,7 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +42,8 @@ public class EventConsumer implements CommunityConstant {
 
     @Autowired
     private MessageService messageService;
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Autowired
     private DiscussPostService discussPostService;
@@ -64,6 +69,10 @@ public class EventConsumer implements CommunityConstant {
     @Autowired
     private ThreadPoolTaskScheduler taskScheduler;
 
+    @Autowired
+    private KafkaTemplate kafkaTemplate;
+    @Autowired
+    private EventProducer eventProducer;
 
 
 
@@ -242,6 +251,46 @@ public class EventConsumer implements CommunityConstant {
 
         }
     }
+    @KafkaListener(topics = {TOPIC_DELETE_USER_PROFILE_CACHE})
+    public void handleDeleteUserProfileCache(ConsumerRecord record) {
+        logger.info("Received message: " + record.value());
+        if (record == null || record.value() == null) {
+            logger.error("消息的内容为空!");
+            return;
+        }
 
+        Event event = JSONObject.parseObject(record.value().toString(), Event.class);
+        if (event == null) {
+            logger.error("消息格式错误!");
+            return;
+        }
+        int userId = event.getUserId();
+        //并不是直接传入userId，应该是传入RedisKey
+        String redisKey = RedisKeyUtil.getUserKey(userId);
+        boolean deleteResult = redisTemplate.delete(redisKey);
+        if (!deleteResult) {
+            // 删除缓存失败，可以进行重试
+
+            event.getData().put("retryCount", (int)event.getData().getOrDefault("retryCount", 0) + 1);
+            int retryCount = (int)event.getData().get("retryCount");
+
+            if ( retryCount <= MAX_RETRY_COUNT) {
+                //添加重试间隔，不要秒发。这样会等待3s后再重试
+                int retryIntervalSeconds = 3;
+                try {
+                    Thread.sleep(retryIntervalSeconds * 1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.error("重试间隔等待被中断", e);
+                }
+                logger.info("删除失败，正在重试第" + retryCount + "次");
+                eventProducer.fireEvent(event);
+            } else {
+                logger.error("超过最大重试次数，删除缓存失败",event);
+            }
+        } else {
+            logger.info("删除成功 ");
+        }
+    }
 
 }
