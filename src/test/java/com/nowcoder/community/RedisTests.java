@@ -1,5 +1,7 @@
 package com.nowcoder.community;
 
+import com.nowcoder.community.util.RedisKeyUtil;
+import com.nowcoder.community.util.SensitiveFilter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,8 @@ public class RedisTests {
 
     @Autowired
     private RedisTemplate redisTemplate;
+    @Autowired
+    private SensitiveFilter sensitiveFilter;
 
     @Test
     public void testStrings() {
@@ -130,6 +134,15 @@ public class RedisTests {
             }
         });
         System.out.println(obj);
+    }
+
+    @Test
+    public void testFilter() {
+        String redisKey = RedisKeyUtil.getSensitiveWordsKey();
+        sensitiveFilter.addRealtimeSensitiveWord("西西");
+        String s = sensitiveFilter.filter("我赌博你好啊哈西西哈");
+
+        System.out.println(s);
     }
 
 }

@@ -16,8 +16,8 @@ public class RedisKeyUtil {
     private static final String PREFIX_POST = "post";
 
     private static final String PREFIX_SENSITIVE_WORDS = "sensitive_words";
-    //虽然有点冗余但能提高可读性和管理性
-    private static final String TYPE_SENSITIVE_WORDS = "realtime_sensitive_words";
+
+
 
     // 某个实体的赞
     // like:entity:entityType:entityId -> set(userId)
@@ -80,10 +80,11 @@ public class RedisKeyUtil {
         return PREFIX_POST + SPLIT +  "score";
     }
 
-    //2023.9.2 Redis存实时敏感词关键字
-    public static String getRealTimeSensitiveWords() {
-        return PREFIX_SENSITIVE_WORDS + SPLIT + TYPE_SENSITIVE_WORDS;
+    //2023.9.2 Redis存敏感词关键字
+    public static String getSensitiveWordsKey() {
+        return PREFIX_SENSITIVE_WORDS;
     }
+
 
 
 

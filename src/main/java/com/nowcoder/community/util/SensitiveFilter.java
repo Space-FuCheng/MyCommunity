@@ -4,6 +4,8 @@ import org.apache.commons.lang3.CharUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -13,15 +15,36 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public class SensitiveFilter {
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+    // 将实时敏感词添加到Redis中
+
+
 
     private static final Logger logger = LoggerFactory.getLogger(SensitiveFilter.class);
 
     // 替换符
     private static final String REPLACEMENT = "***";
 
+    private static final String SENSITIVE_WORDS_KEY = "realtime_sensitive_words";
+
+    public void addRealtimeSensitiveWord(String word) {
+        redisTemplate.opsForSet().add(SENSITIVE_WORDS_KEY, word);
+    }
+
+    // 从Redis中移除实时敏感词
+    public void removeRealtimeSensitiveWord(String word) {
+        redisTemplate.opsForSet().remove(SENSITIVE_WORDS_KEY, word);
+    }
+
+    // 从Redis中获取所有实时敏感词
+    public Set<String> getRealtimeSensitiveWords() {
+        return redisTemplate.opsForSet().members(SENSITIVE_WORDS_KEY);
+    }
     // 根节点
     private TrieNode rootNode = new TrieNode();
 
@@ -32,6 +55,7 @@ public class SensitiveFilter {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
         ) {
             String keyword;
+
             while ((keyword = reader.readLine()) != null) {
                 // 添加到前缀树
                 this.addKeyword(keyword);
@@ -40,6 +64,7 @@ public class SensitiveFilter {
             logger.error("加载敏感词文件失败: " + e.getMessage());
         }
     }
+
 
     // 将一个敏感词添加到前缀树中
     private void addKeyword(String keyword) {
@@ -74,7 +99,26 @@ public class SensitiveFilter {
         if (StringUtils.isBlank(text)) {
             return null;
         }
+        //前缀树先过滤
+        String filteredText = filterStatic(text);
+        //再用Redis过滤
+        filteredText = filterDynamic(filteredText);
+        return filteredText;
 
+    }
+
+    private String filterDynamic(String filteredText) {
+        Set<String> realTimeSensitiveWords = redisTemplate.opsForSet().members(SENSITIVE_WORDS_KEY);
+        for (String word : realTimeSensitiveWords) {
+            if (filteredText.contains(word)) {
+                //注意这里要用等号，才能成功替换
+                filteredText = filteredText.replaceAll(word, "***");
+            }
+        }
+        return filteredText;
+    }
+
+    private String filterStatic(String text) {
         // 指针1
         TrieNode tempNode = rootNode;
         // 指针2
