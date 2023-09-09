@@ -8,6 +8,7 @@ import com.nowcoder.community.entity.DiscussPost;
 import com.nowcoder.community.entity.LoginTicket;
 import com.nowcoder.community.entity.Message;
 import com.nowcoder.community.entity.User;
+import com.nowcoder.community.util.CommunityUtil;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,17 +50,21 @@ public class MapperTests {
 
     @Test
     public void testInsertUser() {
-        User user = new User();
-        user.setUsername("test");
-        user.setPassword("123456");
-        user.setSalt("abc");
-        user.setEmail("test@qq.com");
-        user.setHeaderUrl("http://www.nowcoder.com/101.png");
-        user.setCreateTime(new Date());
+        for (int i = 101 ; i <= 10000; i++) {
+            User user = new User();
+            user.setUsername("username" + i);
+            user.setPassword(CommunityUtil.hashPassword("password" + i));
+            user.setSalt("abc");
+            user.setEmail("test@qq.com");
+            user.setHeaderUrl("http://www.nowcoder.com/101.png");
+            user.setCreateTime(new Date());
+            user.setStatus(1);
 
-        int rows = userMapper.insertUser(user);
-        System.out.println(rows);
-        System.out.println(user.getId());
+            int rows = userMapper.insertUser(user);
+            System.out.println(rows);
+            System.out.println(user.getId());
+        }
+
     }
 
     @Test

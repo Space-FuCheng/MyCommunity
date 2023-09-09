@@ -51,6 +51,7 @@ public class UserService implements CommunityConstant {
 
     public User findUserById(int id) {
 //        return userMapper.selectById(id);
+        //用缓存
         User user = getCache(id);
         if (user == null) {
             user = initCache(id);
@@ -112,6 +113,7 @@ public class UserService implements CommunityConstant {
         // http://localhost:8080/community/activation/101/code
         String url = domain + contextPath + "/activation/" + user.getId() + "/" + user.getActivationCode();
         context.setVariable("url", url);
+//        处理邮件模板：使用Thymeleaf模板引擎的templateEngine.process方法来处理邮件模板。模板文件通常位于项目的resources/templates目录下，这里使用了"/mail/activation"作为模板文件的路径。
         String content = templateEngine.process("/mail/activation", context);
         mailClient.sendMail(user.getEmail(), "激活账号", content);
 
@@ -173,7 +175,9 @@ public class UserService implements CommunityConstant {
         // 生成登录凭证
         LoginTicket loginTicket = new LoginTicket();
         loginTicket.setUserId(user.getId());
-        loginTicket.setTicket(CommunityUtil.generateUUID());
+        //下面这行是ticket，我把它设置为用户名，便于压测
+        loginTicket.setTicket(user.getUsername());
+//        loginTicket.setTicket(CommunityUtil.generateUUID());
         loginTicket.setStatus(0);
         loginTicket.setExpired(new Date(System.currentTimeMillis() + expiredSeconds * 1000));
 //        loginTicketMapper.insertLoginTicket(loginTicket);

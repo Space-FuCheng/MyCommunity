@@ -93,6 +93,7 @@ public class UserController implements CommunityConstant {
             return CommunityUtil.getJSONString(1, "文件名不能为空");
         }
         String url = headerBucketUrl + "/" + fileName;
+        //这里能用hostHolder.getUser()是因为拦截器LoginTicketInterceptor，保证了此次请求user在hostholder里
         userService.updateHeader(hostHolder.getUser().getId(), url);
         return CommunityUtil.getJSONString(0);
     }

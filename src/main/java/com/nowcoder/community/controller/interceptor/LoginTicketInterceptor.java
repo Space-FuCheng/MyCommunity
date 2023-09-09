@@ -48,7 +48,6 @@ public class LoginTicketInterceptor implements HandlerInterceptor {
 
             }
         }
-
         return true;
     }
 

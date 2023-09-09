@@ -58,7 +58,7 @@ public class LoginController implements CommunityConstant {
     }
 
     @RequestMapping(path = "/register", method = RequestMethod.POST)
-    public String register(Model model, User user) {
+    public String register(Model model, User user) { //当用户提交注册表单时，Spring MVC会自动将这些表单字段的值(如账号密码)绑定到User对象的相应属性上。另外user会被spring自动绑定到model里
         Map<String, Object> map = userService.register(user);
         if (map == null || map.isEmpty()) {
             model.addAttribute("msg", "注册成功,我们已经向您的邮箱发送了一封激活邮件,请尽快激活!");
@@ -99,6 +99,7 @@ public class LoginController implements CommunityConstant {
         // session.setAttribute("kaptcha", text);
 
         // 验证码的归属
+        //验证码被放在Cookie中的主要目的是为了跟踪验证码的所有权。通常情况下，验证码的生成和验证是有状态的过程，即验证码需要跟踪哪个用户正在请求验证码，以确保用户在提交表单时输入了正确的验证码。
         String kaptchaOwner = CommunityUtil.generateUUID();
         Cookie cookie = new Cookie("kaptchaOwner", kaptchaOwner);
         cookie.setMaxAge(60);
@@ -108,7 +109,7 @@ public class LoginController implements CommunityConstant {
         String redisKey = RedisKeyUtil.getKaptchaKey(kaptchaOwner);
         redisTemplate.opsForValue().set(redisKey, text, 60, TimeUnit.SECONDS);
 
-        // 将突图片输出给浏览器
+        // 将图片输出给浏览器
         response.setContentType("image/png");
         try {
             OutputStream os = response.getOutputStream();
@@ -120,15 +121,16 @@ public class LoginController implements CommunityConstant {
 
     @RequestMapping(path = "/login", method = RequestMethod.POST)
     public String login(String username, String password, String code, boolean rememberme,
-                        Model model, /*HttpSession session, */HttpServletResponse response,
-                        @CookieValue("kaptchaOwner") String kaptchaOwner) {
+                        Model model, /*HttpSession session, */HttpServletResponse response/*,
+                        测试无验证码，我注释掉了@CookieValue("kaptchaOwner") String kaptchaOwner*/) {
         // 检查验证码
-        // String kaptcha = (String) session.getAttribute("kaptcha");
-        String kaptcha = null;
-        if (StringUtils.isNotBlank(kaptchaOwner)) {
-            String redisKey = RedisKeyUtil.getKaptchaKey(kaptchaOwner);
-            kaptcha = (String) redisTemplate.opsForValue().get(redisKey);
-        }
+        // String kaptcha = (String) session.getAttribute("kaptcha");这行用不到，不要解除注释
+        //测试没有验证码，我注释掉了
+//        String kaptcha = null;
+//        if (StringUtils.isNotBlank(kaptchaOwner)) {
+//            String redisKey = RedisKeyUtil.getKaptchaKey(kaptchaOwner);
+//            kaptcha = (String) redisTemplate.opsForValue().get(redisKey);
+//        }
 
 //        if (StringUtils.isBlank(kaptcha) || StringUtils.isBlank(code) || !kaptcha.equalsIgnoreCase(code)) {
 //            model.addAttribute("codeMsg", "验证码不正确!");
@@ -139,6 +141,7 @@ public class LoginController implements CommunityConstant {
         int expiredSeconds = rememberme ? REMEMBER_EXPIRED_SECONDS : DEFAULT_EXPIRED_SECONDS;
         Map<String, Object> map = userService.login(username, password, expiredSeconds);
         if (map.containsKey("ticket")) {
+//            "ticket" 是一个 Cookie 的名称，用于存储用户的登录凭证。
             Cookie cookie = new Cookie("ticket", map.get("ticket").toString());
             cookie.setPath(contextPath);
             cookie.setMaxAge(expiredSeconds);
@@ -154,8 +157,9 @@ public class LoginController implements CommunityConstant {
     @RequestMapping(path = "/logout", method = RequestMethod.GET)
     public String logout(@CookieValue("ticket") String ticket) {
         userService.logout(ticket);
+//        清除 Spring Security 的上下文，确保用户在退出登录后不再具有任何已验证的身份信息。这是为了确保用户在注销后不再具有访问受保护资源的权限。
         SecurityContextHolder.clearContext();
-        return "redirect:/login";
+        return "redirect:/index";
     }
 
 }

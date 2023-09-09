@@ -23,8 +23,6 @@ public class SensitiveFilter {
     private RedisTemplate<String, String> redisTemplate;
     // 将实时敏感词添加到Redis中
 
-
-
     private static final Logger logger = LoggerFactory.getLogger(SensitiveFilter.class);
 
     // 替换符
